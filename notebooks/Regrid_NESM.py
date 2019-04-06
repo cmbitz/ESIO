@@ -20,9 +20,9 @@ GNU General Public License v3.0
 '''
 
 # Standard Imports
-
-
-
+get_ipython().magic('matplotlib inline')
+get_ipython().magic('load_ext autoreload')
+get_ipython().magic('autoreload')
 import matplotlib
 import scipy
 import matplotlib.pyplot as plt
@@ -135,7 +135,11 @@ for model in all_models:
 
         c_files = sorted(glob.glob(os.path.join(data_dir, '*'+prefix+'*_'+cf+'*.nc')))
                     
-        
+        # TODO: Fix so can open one file
+        if len(c_files)==1:
+            print("Skipping ",c_files," because this routines fails when only one file")
+            continue
+
         # Some files have a "tau" variable that is hours since analysis
         try:
             ds = xr.open_mfdataset(c_files, concat_dim='time', decode_times=False, autoclose=True)
@@ -252,5 +256,4 @@ if weights_flag:
 #                                      transform=ccrs.PlateCarree(),
 #                                      cmap=cmap_sic)
 # ax1.set_title('Target Grid')
-
 
