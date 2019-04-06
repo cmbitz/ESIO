@@ -27,7 +27,7 @@ Plot forecast maps with all available models.
 
 
 import matplotlib
-matplotlib.use('Agg')
+# matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from collections import OrderedDict
 import itertools
@@ -119,16 +119,18 @@ def Update_PanArctic_Maps():
     start_t = datetime.datetime(1950, 1, 1) # datetime.datetime(1950, 1, 1)
     # Params for this plot
     Ndays = 7 # time period to aggregate maps to (default is 7)
-    Npers =  5 # 5 number of periods to plot (from current date) (default is 14)
-    NweeksUpdate = 3 # 3 Always update the most recent NweeksUpdate periods
+    Npers =  1 #5 # 5 number of periods to plot (from current date) (default is 14)
+    NweeksUpdate = 1 #3 # 3 Always update the most recent NweeksUpdate periods
     init_slice = np.arange(start_t, cd, datetime.timedelta(days=Ndays)).astype('datetime64[ns]')
     init_slice = init_slice[-Npers:] # Select only the last Npers of periods (weeks) since current date
 
     # Forecast times to plot
     weeks = pd.to_timedelta(np.arange(0,5,1), unit='W')
-    months = pd.to_timedelta(np.arange(2,12,1), unit='M')
-    years = pd.to_timedelta(np.arange(1,2), unit='Y') - np.timedelta64(1, 'D') # need 364 not 365
-    slices = weeks.union(months).union(years).round('1d')
+    morewks = pd.to_timedelta([9,13,17,22,26], unit='W')
+#    months = pd.to_timedelta(np.arange(2,12,1), unit='M')
+#    years = pd.to_timedelta(np.arange(1,2), unit='Y') - np.timedelta64(1, 'D') # need 364 not 365
+#    slices = weeks.union(months).union(years).round('1d')
+    slices = weeks.union(morewks).round('1d')
     da_slices = xr.DataArray(slices, dims=('fore_time'))
     da_slices.fore_time.values.astype('timedelta64[D]')
     print(da_slices)
@@ -288,7 +290,8 @@ def Update_PanArctic_Maps():
                     axes[ax_num].set_title('Observed')
 
                     try:
-                        da_obs_c = ds_ALL[metric].sel(model='Observed',init_end=it, fore_time=ft)
+                        da_obs_c = ds_ALL[metric].sel(model=b'Observed',init_end=it, fore_time=ft)
+                        print('da_obs_c',da_obs_c)
                         haveObs = True
                     except KeyError:
                         haveObs = False
@@ -324,7 +327,7 @@ def Update_PanArctic_Maps():
 
                         # Select current model to plot
                         try:
-                            ds_model = ds_ALL[metric].sel(model=cmod,init_end=it, fore_time=ft)
+                            ds_model = ds_ALL[metric].sel(model=cmod.encode('utf-8'),init_end=it, fore_time=ft)
                             haveMod = True
                         except:
                             haveMod = False
