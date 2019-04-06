@@ -24,9 +24,9 @@ GNU General Public License v3.0
 
 
 # Standard Imports
-
-
-
+get_ipython().magic('matplotlib inline')
+get_ipython().magic('load_ext autoreload')
+get_ipython().magic('autoreload')
 import matplotlib
 import scipy
 import matplotlib.pyplot as plt
@@ -125,7 +125,7 @@ def Update_Model_Aggs():
             ds_out.load() # This prevents many errors in the dask graph (I don't know why)
 
             # # Save regridded to netcdf file
-
+            ds_out.to_netcdf(f_out)
             ds_out = None # Memory clean up
             da_panE = None
             da_RegE = None
@@ -149,5 +149,4 @@ if __name__ == '__main__':
     
     # Close it down
     client.close()
-
 
