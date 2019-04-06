@@ -43,6 +43,20 @@ import dask
 # In[3]:
 
 
+cd = datetime.datetime.now()
+cy = cd.year
+#cd = datetime.datetime(cy, 1, 2)  # force it for checking
+
+print(cd)
+firstfive = False
+if ((cd.month == 1) & (cd.day<6)):
+    firstfive = True
+firstfive
+
+
+# In[4]:
+
+
 # Dirs
 E = ed.EsioData.load()
 data_dir = E.obs_dir
@@ -52,8 +66,6 @@ UpdateAll = False
 
 # Products to import
 product_list = ['NSIDC_0081', 'NSIDC_0079', 'NSIDC_0051']
-
-cy = datetime.datetime.now().year
 
 # Loop through each product
 for c_product in product_list:
@@ -69,9 +81,12 @@ for c_product in product_list:
                 os.makedirs(out_dir)
                 
         nc_out = os.path.join(out_dir, cyear_str+'.nc')
-        # Don't update file if exits, unless current year
-        if (os.path.isfile(nc_out)) & (cyear!=cy):
-            #print("File already exists")
+        # Don't update file if exits, unless current year or in first 5 days of new year
+        if ((os.path.isfile(nc_out)) & (cyear<cy-1)):
+            print('Year ',cyear,' is done')
+            continue
+        if ((os.path.isfile(nc_out)) & ((cyear==cy-1) & (not(firstfive)))):
+            print('Not first few days of year so do not redo',cyear)
             continue
 
         # Load in Obs
@@ -82,7 +97,7 @@ for c_product in product_list:
         ds_year = xr.open_mfdataset(c_files, 
                                       concat_dim='time', autoclose=True, parallel=True)
 
-        
+        print('writing netcdf file')
         ds_year.to_netcdf(nc_out)
         print(cyear)
       
@@ -91,9 +106,8 @@ for c_product in product_list:
     print("")
 
 
-# In[4]:
+# In[5]:
 
 
 ds_year = None
-
 
