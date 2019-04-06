@@ -30,9 +30,9 @@ GNU General Public License v3.0
 Plot forecast maps with all available models.
 '''
 
-
-
-
+#get_ipython().magic('matplotlib inline')
+#get_ipython().magic('load_ext autoreload')
+#get_ipython().magic('autoreload')
 import matplotlib
 if not PaperPlots:
     matplotlib.use('Agg')
@@ -345,7 +345,7 @@ def Update_Evaluation_Maps():
             #print(lead_time_days)
 
             if not PaperPlots: # only add for website plots
-                cbar_ax.text(0.35, 1.1, 'Wayand et al. (in review)', fontsize=12)
+                cbar_ax.text(0.35, 1.1, 'Wayand et al. (2019)', fontsize=12)
 
             valid_start_str = pd.to_datetime(start_date_map).strftime('%Y-%m-%d')
             valid_end_str = pd.to_datetime(end_date_map).strftime('%Y-%m-%d')
@@ -416,7 +416,7 @@ def Update_Evaluation_Maps():
     ax2.set_yticks(np.arange(0,for_sample.max()+5,15));
 
     if not PaperPlots: # only add for website plots
-        ax1.text(17, 0.025, 'Wayand et al. (in review)', fontsize=12)
+        ax1.text(17, 0.025, 'Wayand et al. (2019)', fontsize=12)
 
     # Save to file
     f_out = os.path.join(fig_dir,fig_ext+'BSS_by_lead_time_PanArctic.png')
@@ -482,7 +482,7 @@ def Update_Evaluation_Maps():
     ax2.set_yticks(np.arange(0,for_sample.max()+5,15));
 
     if not PaperPlots: # only add for website plots
-        ax1.text(17, 0.025, 'Wayand et al. (in review)', fontsize=12)
+        ax1.text(17, 0.025, 'Wayand et al. (2019)', fontsize=12)
 
     # Save to file
     f_out = os.path.join(fig_dir,fig_ext+'BSS_by_lead_time_PanArctic_New.png')
@@ -547,7 +547,7 @@ def Update_Evaluation_Maps():
     ax2.set_yticks(np.arange(0,for_sample.max()+5,15));
 
     if not PaperPlots: # only add for website plots
-        ax1.text(np.datetime64('2018-01-01'), 0.025, 'Wayand et al. (in review)', fontsize=12)
+        ax1.text(np.datetime64('2018-01-01'), 0.025, 'Wayand et al. (2019)', fontsize=12)
 
     # Save to file
     f_out = os.path.join(fig_dir,fig_ext+'IIEE_by_lead_time_PanArctic.png')
@@ -644,7 +644,7 @@ def Update_Evaluation_Maps():
     plt.ylabel('Pan-Arctic BS (-)')
 
     if not PaperPlots: # only add for website plots
-        axes.text(5, 0.085, 'Wayand et al. (in review)', fontsize=12)
+        axes.text(5, 0.085, 'Wayand et al. (2019)', fontsize=12)
 
     # Save to file
     f_out = os.path.join(fig_dir,fig_ext+'BSS_week_Multi_by_DA_Type.png')
@@ -686,7 +686,7 @@ def Update_Evaluation_Maps():
 
 
         if not PaperPlots: # only add for website plots
-            plt.text(np.datetime64('2018-01-01'), 0.16, 'Wayand et al. (in review)', fontsize=12)
+            plt.text(np.datetime64('2018-01-01'), 0.16, 'Wayand et al. (2019)', fontsize=12)
         # Save to file
         f_out = os.path.join(fig_dir,fig_ext+'BSS_by_init_time_'+str(BSS_agg_fore.fore_time.values.astype('timedelta64[D]').astype(int))+'_days.png')
         f.savefig(f_out,bbox_inches='tight', dpi=300)
@@ -703,5 +703,4 @@ if __name__ == '__main__':
     
     # Call function
     Update_Evaluation_Maps()
-
 
