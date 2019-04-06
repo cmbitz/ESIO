@@ -23,9 +23,6 @@ GNU General Public License v3.0
 Plot exetent/area from observations and models (past and future)
 '''
 
-
-
-
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt, mpld3
@@ -63,17 +60,21 @@ variables = ['sic'] #, 'hi'
 metric1 = 'extent'
 
 
-# In[3]:
+# In[15]:
 
 
 # Initialization times to plot
 cd = datetime.datetime.now()
 cd = datetime.datetime(cd.year, cd.month, cd.day) # Assumes hours 00, min 00
-SD = cd - datetime.timedelta(days=90)
+
+SD = cd - datetime.timedelta(days=45)
+SD = datetime.datetime(SD.year,SD.month,1) # always start on first of month
+
 ED = cd + datetime.timedelta(days=365)
+print(SD)
 
 
-# In[4]:
+# In[5]:
 
 
 # Models not to plot
@@ -86,7 +87,7 @@ no_plot = ['rasmesrl','noaasipn']
 
 
 
-# In[5]:
+# In[6]:
 
 
 #############################################################
@@ -95,9 +96,7 @@ no_plot = ['rasmesrl','noaasipn']
 E = ed.EsioData.load()
 
 
-# In[6]:
-
-
+# In[7]:
 
 
 # Load in Observations
@@ -111,12 +110,7 @@ E = ed.EsioData.load()
 ds_ext = xr.open_dataset(os.path.join(E.obs['NSIDC_extent']['sipn_nc'], 'N_seaice_extent_daily_v3.0.nc'))
 ds_ext = ds_ext.rename({'datetime':'time'})
 
-
-# In[7]:
-
-
-# Combine extent obs using highest quality first
-ds_obs = ds_ext #.Extent.combine_first(da_79).combine_first(da_51).combine_first(da_81)
+ds_obs_PAall = ds_ext.Extent.where(ds_ext.time>=np.datetime64(SD), drop=True)   # PAall includes CA Is and SJ
 
 
 # In[8]:
@@ -130,32 +124,45 @@ ds_region = xr.open_dataset(os.path.join(E.grid_dir, 'sio_2016_mask_Update.nc'))
 # In[9]:
 
 
-cdate = datetime.datetime.now()
+ds_obs_reg = xr.open_mfdataset(E.obs['NSIDC_0081']['sipn_nc']+'_yearly/*.nc', concat_dim='time')#,
+ds_obs_reg = ds_obs_reg.sic.where(ds_obs_reg.time>=np.datetime64(SD), drop=True)
+ds_obs_CA = ds_obs_reg.where(ds_region.mask==14)
+ds_obs_CA = ((ds_obs_CA >= 0.15).astype('int') * ds_region.area).sum(dim='x').sum(dim='y')/(10**6)
+ds_obs_SJ = ds_obs_reg.where(ds_region.mask==5)
+ds_obs_SJ = ((ds_obs_SJ >= 0.15).astype('int') * ds_region.area).sum(dim='x').sum(dim='y')/(10**6)
+
+ds_obs=ds_obs_PAall-ds_obs_CA-ds_obs_SJ
 
 
 # In[10]:
 
 
-ds_per = ds_obs.sel(time=slice('1980','2010'))
-DOY = [x.timetuple().tm_yday for x in pd.to_datetime(ds_per.time.values)]
-ds_per['time'] = DOY # replace
-ds_per_mean = ds_per.groupby('time').mean().Extent
-ds_per_std = ds_per.groupby('time').std().Extent
-# Adjust dates to this year
-ds_per_mean['time'] = (ds_per_mean.time -1).astype('timedelta64[D]') + np.datetime64(datetime.datetime(cdate.year,1,1))
-ds_per_std['time'] = (ds_per_std.time -1).astype('timedelta64[D]') + np.datetime64(datetime.datetime(cdate.year,1,1))
-# append next year because some plots go into future
-ds_per_mean_2 = ds_per_mean.copy()
-ds_per_std_2 = ds_per_std.copy()
-
-ds_per_mean_2['time'] = ds_per_mean_2.time + np.timedelta64(ds_per_mean.time.size,'D')
-ds_per_mean = xr.concat([ds_per_mean,ds_per_mean_2], dim='time')
-
-ds_per_std_2['time'] = ds_per_std_2.time + np.timedelta64(ds_per_std.time.size,'D')
-ds_per_std = xr.concat([ds_per_std,ds_per_std_2], dim='time')
+cdate = datetime.datetime.now()
 
 
-# In[11]:
+# In[12]:
+
+
+#ds_per = ds_obs.sel(time=slice('1980','2010'))
+#DOY = [x.timetuple().tm_yday for x in pd.to_datetime(ds_per.time.values)]
+#ds_per['time'] = DOY # replace
+#ds_per_mean = ds_per.groupby('time').mean().Extent
+#ds_per_std = ds_per.groupby('time').std().Extent
+## Adjust dates to this year
+#ds_per_mean['time'] = (ds_per_mean.time -1).astype('timedelta64[D]') + np.datetime64(datetime.datetime(cdate.year,1,1))
+#ds_per_std['time'] = (ds_per_std.time -1).astype('timedelta64[D]') + np.datetime64(datetime.datetime(cdate.year,1,1))
+## append next year because some plots go into future
+#ds_per_mean_2 = ds_per_mean.copy()
+#ds_per_std_2 = ds_per_std.copy()
+#
+#ds_per_mean_2['time'] = ds_per_mean_2.time + np.timedelta64(ds_per_mean.time.size,'D')
+#ds_per_mean = xr.concat([ds_per_mean,ds_per_mean_2], dim='time')
+#
+#ds_per_std_2['time'] = ds_per_std_2.time + np.timedelta64(ds_per_std.time.size,'D')
+#ds_per_std = xr.concat([ds_per_std,ds_per_std_2], dim='time')
+
+
+# In[13]:
 
 
 def plot_user_Extent():
@@ -177,7 +184,7 @@ def plot_user_Extent():
 
 # # Plot Raw extents and only models that predict sea ice
 
-# In[12]:
+# In[14]:
 
 
 # cmap_c = itertools.cycle(sns.color_palette("Paired", len(E.model.keys()) ))
@@ -248,11 +255,11 @@ for cvar in variables:
         ds_model = None
         
     # Hack plot of models that only provide bias corrected SIE
-    plot_user_Extent()
+#    plot_user_Extent()
         
     # Plot observations
     print('Plotting observations')
-    ds_obs.Extent.where(ds_obs.time>=np.datetime64(SD), drop=True).plot(ax=ax1, label=str(cdate.year)+' Observed', color='m', linewidth=8)
+    ds_obs.plot(ax=ax1, label=str(cdate.year)+' Observed', color='m', linewidth=8)
     ax1.set_ylabel('Sea Ice Extent\n [Millions of square km]')
     cxlims = ax1.get_xlim()
 
@@ -276,12 +283,12 @@ for cvar in variables:
     # Save to file
     f_out = os.path.join(fig_dir,'panArctic_'+metric1+'_'+runType+'_raw_predicted.png')
     f.savefig(f_out,bbox_inches='tight',dpi=200)
-    mpld3.save_html(f, os.path.join(fig_dir,'panArctic_'+metric1+'_'+runType+'_raw_predicted.html'))
+#    mpld3.save_html(f, os.path.join(fig_dir,'panArctic_'+metric1+'_'+runType+'_raw_predicted.html'))
 
 
 # # Plot raw extents
 
-# In[13]:
+# In[ ]:
 
 
 for cvar in variables:
@@ -345,7 +352,7 @@ for cvar in variables:
         ds_model = None
         
     # Hack plot of models that only provide bias corrected SIE
-    plot_user_Extent()    
+#    plot_user_Extent()    
         
         
     # Plot observations
@@ -375,5 +382,4 @@ for cvar in variables:
     f_out = os.path.join(fig_dir,'panArctic_'+metric1+'_'+runType+'_raw_all.png')
     f.savefig(f_out, bbox_inches='tight',dpi=200)
 #     mpld3.save_html(f, os.path.join(fig_dir,'panArctic_'+metric1+'_'+runType+'_raw_all.html'))
-
 
