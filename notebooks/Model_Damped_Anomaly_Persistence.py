@@ -23,9 +23,9 @@ GNU General Public License v3.0
 Plot forecast maps with all available models.
 '''
 
-get_ipython().magic('matplotlib inline')
-get_ipython().magic('load_ext autoreload')
-get_ipython().magic('autoreload')
+#get_ipython().magic('matplotlib inline')
+#get_ipython().magic('load_ext autoreload')
+#get_ipython().magic('autoreload')
 import matplotlib
 import matplotlib.pyplot as plt
 from collections import OrderedDict

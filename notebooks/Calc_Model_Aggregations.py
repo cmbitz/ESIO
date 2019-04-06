@@ -24,9 +24,9 @@ GNU General Public License v3.0
 
 
 # Standard Imports
-get_ipython().magic('matplotlib inline')
-get_ipython().magic('load_ext autoreload')
-get_ipython().magic('autoreload')
+#get_ipython().magic('matplotlib inline')
+#get_ipython().magic('load_ext autoreload')
+#get_ipython().magic('autoreload')
 import matplotlib
 import scipy
 import matplotlib.pyplot as plt
