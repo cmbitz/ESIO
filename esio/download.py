@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 from ecmwfapi import ECMWFDataServer
 
-
 @dask.delayed
 def download_month(config_dict):
     # Start server
@@ -39,8 +38,13 @@ def download_data_by_month(dataclass=None, main_dir=None,
     if DS>DE:
         print('No data avaialble yet for ', str(cy),'-',str(cm))
         print('Re-downloading previous month...')
+        cm = cm -1
+        if cm==0:
+            cm =  12
+            cy = cy - 1
+        print(cm)
         download_data_by_month(dataclass=dataclass, main_dir=main_dir,
-                               mod_dicts=mod_dicts, cy=cy, cm=cm-1)
+                               mod_dicts=mod_dicts, cy=cy, cm=cm)
         return 0 # Just return an int for dask. Don't continue here.
 
     # Create date range as string

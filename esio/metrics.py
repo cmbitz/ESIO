@@ -163,16 +163,19 @@ def calc_IFD_10day(da, sic_threshold=0.5, DOY_s=1, time_dim='time', Nday=10, def
 
 
 def calc_hist_sip(ds_sic=None, ystart='2007', yend='2017', sic_threshold=0.15):
-    ''' Calc historical SIP for a range of years'''
+    ''' Calc historical SIP for a range of years '''
     
     # Trim by years
     ds_sic = ds_sic.sel(time=slice(ystart, yend))
     
-    # Get landmask (where sic is NaN)
-    land_mask = ds_sic.drop('hole_mask').isel(time=0).notnull()
+    # Get landmask and pole hole (where sic is NaN from last time so pole hold is smallest)
+    land_mask = ds_sic.drop('hole_mask').isel(time=len(ds_sic.time)-1).notnull()
     
     # Convert sea ice presence
     ds_sp = (ds_sic >= sic_threshold).astype('int') # This unfortunatly makes all NaN -> zeros...
+    
+    # Mask land before fill in pole hole since it wipes it out
+    ds_sp = ds_sp.where(land_mask)
     
     # Fill in pole hole with 1 (so contours don't get made around it)
     ds_sp = ds_sp.where(ds_sic.hole_mask==0, other=1).drop('hole_mask')
@@ -183,9 +186,6 @@ def calc_hist_sip(ds_sic=None, ystart='2007', yend='2017', sic_threshold=0.15):
     
     # Calculate mean SIP
     ds_sip = ds_sp.groupby('time').mean(dim='time')
-    
-    # Mask land
-    ds_sip = ds_sip.where(land_mask)
     
     return ds_sip
 
