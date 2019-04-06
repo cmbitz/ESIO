@@ -23,9 +23,9 @@ GNU General Public License v3.0
 Plot forecast maps with all available models.
 '''
 
-
-
-
+get_ipython().magic('matplotlib inline')
+get_ipython().magic('load_ext autoreload')
+get_ipython().magic('autoreload')
 import matplotlib
 import matplotlib.pyplot as plt
 from collections import OrderedDict
@@ -230,7 +230,14 @@ for ctime in ds_81.time.sel(time=slice(start_date,end_date)):
     fore_cast_interval = 1
     alpha_lead_time = 7.0 # days that the alpha corr was calculated for
     for fore_days in np.arange(0,366,1):
-        fore_anomaly = (alpha_cdoy.sel(doy=cdoy).alpha**(fore_days/alpha_lead_time)) * c_anomaly
+        
+        # Force alph to be between 0-1
+        alph = alpha_cdoy.sel(doy=cdoy).alpha  
+        ocnmask = alph.notnull()                                                      
+        alph = alph.where(alph >= 0, other=0).where(ocnmask)
+        alph = alph.where(alph <= 1, other=1).where(ocnmask)
+   
+        fore_anomaly = (alph**(fore_days/alpha_lead_time)) * c_anomaly
         
         valid_doy = cdoy + fore_days
         # Keep  range 1-365
@@ -438,5 +445,4 @@ if test_plots:
 # O1
 
 # (M1-O1).plot()
-
 
