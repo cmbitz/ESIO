@@ -23,6 +23,9 @@ GNU General Public License v3.0
 Plot exetent/area from observations and models (past and future)
 '''
 
+get_ipython().magic('matplotlib inline')
+get_ipython().magic('load_ext autoreload')
+get_ipython().magic('autoreload')
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt, mpld3
@@ -60,7 +63,7 @@ variables = ['sic'] #, 'hi'
 metric1 = 'extent'
 
 
-# In[15]:
+# In[3]:
 
 
 # Initialization times to plot
@@ -74,7 +77,7 @@ ED = cd + datetime.timedelta(days=365)
 print(SD)
 
 
-# In[5]:
+# In[4]:
 
 
 # Models not to plot
@@ -87,7 +90,7 @@ no_plot = ['rasmesrl','noaasipn']
 
 
 
-# In[6]:
+# In[5]:
 
 
 #############################################################
@@ -96,7 +99,7 @@ no_plot = ['rasmesrl','noaasipn']
 E = ed.EsioData.load()
 
 
-# In[7]:
+# In[6]:
 
 
 # Load in Observations
@@ -113,7 +116,7 @@ ds_ext = ds_ext.rename({'datetime':'time'})
 ds_obs_PAall = ds_ext.Extent.where(ds_ext.time>=np.datetime64(SD), drop=True)   # PAall includes CA Is and SJ
 
 
-# In[8]:
+# In[7]:
 
 
 # Load in regional data
@@ -121,7 +124,7 @@ ds_obs_PAall = ds_ext.Extent.where(ds_ext.time>=np.datetime64(SD), drop=True)   
 ds_region = xr.open_dataset(os.path.join(E.grid_dir, 'sio_2016_mask_Update.nc'))
 
 
-# In[9]:
+# In[8]:
 
 
 ds_obs_reg = xr.open_mfdataset(E.obs['NSIDC_0081']['sipn_nc']+'_yearly/*.nc', concat_dim='time')#,
@@ -134,15 +137,17 @@ ds_obs_SJ = ((ds_obs_SJ >= 0.15).astype('int') * ds_region.area).sum(dim='x').su
 ds_obs=ds_obs_PAall-ds_obs_CA-ds_obs_SJ
 
 
-# In[10]:
+# In[9]:
 
 
 cdate = datetime.datetime.now()
 
 
-# In[12]:
+# In[10]:
 
 
+# this might be kind of cool but it is not working at the moment. it was used to make a figure in the lower section
+plotquartiles = False  # turn it off
 #ds_per = ds_obs.sel(time=slice('1980','2010'))
 #DOY = [x.timetuple().tm_yday for x in pd.to_datetime(ds_per.time.values)]
 #ds_per['time'] = DOY # replace
@@ -162,7 +167,7 @@ cdate = datetime.datetime.now()
 #ds_per_std = xr.concat([ds_per_std,ds_per_std_2], dim='time')
 
 
-# In[13]:
+# In[11]:
 
 
 def plot_user_Extent():
@@ -184,7 +189,7 @@ def plot_user_Extent():
 
 # # Plot Raw extents and only models that predict sea ice
 
-# In[14]:
+# In[12]:
 
 
 # cmap_c = itertools.cycle(sns.color_palette("Paired", len(E.model.keys()) ))
@@ -286,100 +291,101 @@ for cvar in variables:
 #    mpld3.save_html(f, os.path.join(fig_dir,'panArctic_'+metric1+'_'+runType+'_raw_predicted.html'))
 
 
-# # Plot raw extents
+# # Plot raw extents with interquartile range, broken at the moment
 
-# In[ ]:
+# In[16]:
 
 
-for cvar in variables:
-    
-    fig_dir = os.path.join(E.fig_dir, 'model', 'all_model', cvar, "timeseries")
-    if not os.path.exists(fig_dir):
-        os.makedirs(fig_dir)
+if plotquartiles:
+    for cvar in variables:
 
-    # New Plot
-    f = plt.figure(figsize=(15,10))
-    ax1 = plt.subplot(1, 1, 1) # Observations
+        fig_dir = os.path.join(E.fig_dir, 'model', 'all_model', cvar, "timeseries")
+        if not os.path.exists(fig_dir):
+            os.makedirs(fig_dir)
 
-    for (i, cmod) in enumerate(E.model.keys()):
-        if cmod in no_plot:
-            continue
-#     for (i, cmod) in enumerate(['ukmetofficesipn']):
-        print(cmod)
+        # New Plot
+        f = plt.figure(figsize=(15,10))
+        ax1 = plt.subplot(1, 1, 1) # Observations
 
-        # Load in model
-        model_forecast = os.path.join(E.model[cmod][runType]['sipn_nc_agg'], '*.nc')
+        for (i, cmod) in enumerate(E.model.keys()):
+            if cmod in no_plot:
+                continue
+    #     for (i, cmod) in enumerate(['ukmetofficesipn']):
+            print(cmod)
 
-        # Check we have files 
-        files = glob.glob(model_forecast)
-        if not files:
-            #print("Skipping model", cmod, "no forecast files found.")
-            continue # Skip this model
-        ds_model = xr.open_mfdataset(model_forecast, concat_dim='init_time')
-         
-        # Get Extent
-        ds_model = ds_model.Extent
-        
-        # Select the panArctic Region (99)
-        ds_model = ds_model.sel(nregions=99)
-            
-        # Select init of interest
-        ds_model = ds_model.where(ds_model.init_time >= np.datetime64(SD), drop=True)
-        
-        # Get model plotting specs
-        cc = E.model_color[cmod]
-        cl = E.model_linestyle[cmod]
+            # Load in model
+            model_forecast = os.path.join(E.model[cmod][runType]['sipn_nc_agg'], '*.nc')
 
-        # Plot Model
-        print('Plotting...')
-#         print(ds_model)
-        if i == 1: # Control only one initiailzation label in legend
-            no_init_label = False
-        else:
-            no_init_label = True
-        import timeit
-        start_time = timeit.default_timer()
-        #ds_model.load()
-#         print(ds_model)
-        ice_plot.plot_reforecast(ds=ds_model, axin=ax1, 
-                             labelin=E.model[cmod]['model_label'],
-                             color=cc, marker=None,
-                             linestyle=cl,
-                             no_init_label=no_init_label)
-        print( (timeit.default_timer() - start_time), ' seconds.' )
-        
-        # Memeory clean up
-        ds_model = None
-        
-    # Hack plot of models that only provide bias corrected SIE
-#    plot_user_Extent()    
-        
-        
-    # Plot observations
-    print('Plotting observations')
-    ds_obs.Extent.where(ds_obs.time>=np.datetime64(SD), drop=True).plot(ax=ax1, label=str(cdate.year)+' Observed', color='m', linewidth=8)
-    ax1.set_ylabel('Sea Ice Extent\n [Millions of square km]')
-    cxlims = ax1.get_xlim()
+            # Check we have files 
+            files = glob.glob(model_forecast)
+            if not files:
+                #print("Skipping model", cmod, "no forecast files found.")
+                continue # Skip this model
+            ds_model = xr.open_mfdataset(model_forecast, concat_dim='init_time')
 
-    # 1980-2010 Historical Interquartile Range
-    plt.fill_between(ds_per_mean.time.values, ds_per_mean + ds_per_std, 
-                 ds_per_mean - ds_per_std, alpha=0.35, label='1980-2010\nInterquartile Range', color='m')
-    ax1.set_xlim(cxlims) # fix x limits
-    cylims = ax1.get_ylim()
-    
-    # Plot current date line
-    ax1.plot([cd, cd], [cylims[0], cylims[1]], color='k', linestyle='--')
-    
-    # Add legend (static)
-    handles, labels = ax1.get_legend_handles_labels()
-    ax1.legend(handles[::-1], labels[::-1], loc='lower right',bbox_to_anchor=(1.35, 0))
-    
-    f.autofmt_xdate()
-    ax1.set_ylim(cylims)
-    plt.subplots_adjust(right=.8)
-        
-    # Save to file
-    f_out = os.path.join(fig_dir,'panArctic_'+metric1+'_'+runType+'_raw_all.png')
-    f.savefig(f_out, bbox_inches='tight',dpi=200)
-#     mpld3.save_html(f, os.path.join(fig_dir,'panArctic_'+metric1+'_'+runType+'_raw_all.html'))
+            # Get Extent
+            ds_model = ds_model.Extent
+
+            # Select the panArctic Region (99)
+            ds_model = ds_model.sel(nregions=99)
+
+            # Select init of interest
+            ds_model = ds_model.where(ds_model.init_time >= np.datetime64(SD), drop=True)
+
+            # Get model plotting specs
+            cc = E.model_color[cmod]
+            cl = E.model_linestyle[cmod]
+
+            # Plot Model
+            print('Plotting...')
+    #         print(ds_model)
+            if i == 1: # Control only one initiailzation label in legend
+                no_init_label = False
+            else:
+                no_init_label = True
+            import timeit
+            start_time = timeit.default_timer()
+            #ds_model.load()
+    #         print(ds_model)
+            ice_plot.plot_reforecast(ds=ds_model, axin=ax1, 
+                                 labelin=E.model[cmod]['model_label'],
+                                 color=cc, marker=None,
+                                 linestyle=cl,
+                                 no_init_label=no_init_label)
+            print( (timeit.default_timer() - start_time), ' seconds.' )
+
+            # Memeory clean up
+            ds_model = None
+
+        # Hack plot of models that only provide bias corrected SIE
+    #    plot_user_Extent()    
+
+
+        # Plot observations
+        print('Plotting observations')
+        ds_obs.where(ds_obs.time>=np.datetime64(SD), drop=True).plot(ax=ax1, label=str(cdate.year)+' Observed', color='m', linewidth=8)
+        ax1.set_ylabel('Sea Ice Extent\n [Millions of square km]')
+        cxlims = ax1.get_xlim()
+
+        # 1980-2010 Historical Interquartile Range
+        plt.fill_between(ds_per_mean.time.values, ds_per_mean + ds_per_std, 
+                     ds_per_mean - ds_per_std, alpha=0.35, label='1980-2010\nInterquartile Range', color='m')
+        ax1.set_xlim(cxlims) # fix x limits
+        cylims = ax1.get_ylim()
+
+        # Plot current date line
+        ax1.plot([cd, cd], [cylims[0], cylims[1]], color='k', linestyle='--')
+
+        # Add legend (static)
+        handles, labels = ax1.get_legend_handles_labels()
+        ax1.legend(handles[::-1], labels[::-1], loc='lower right',bbox_to_anchor=(1.35, 0))
+
+        f.autofmt_xdate()
+        ax1.set_ylim(cylims)
+        plt.subplots_adjust(right=.8)
+
+        # Save to file
+        f_out = os.path.join(fig_dir,'panArctic_'+metric1+'_'+runType+'_raw_all.png')
+        f.savefig(f_out, bbox_inches='tight',dpi=200)
+    #     mpld3.save_html(f, os.path.join(fig_dir,'panArctic_'+metric1+'_'+runType+'_raw_all.html'))
 

@@ -49,6 +49,26 @@ ver_nums = {'NSIDC_0079':'v3.1','NSIDC_0081':'nrt','NSIDC_0051':'v1.1'}
 
 ds_lat_lon = import_data.get_stero_N_grid(grid_dir=E.grid_dir)
 
+
+# In[2]:
+
+
+#print(ds_lat_lon)
+#print(ds_region)
+
+
+# In[3]:
+
+
+#import matplotlib
+
+#ds_region.mask.plot()
+#print(ds_region.region_names)
+
+
+# In[4]:
+
+
 # Loop through each product
 for c_product in product_list:
     print('Importing ', c_product, '...')
@@ -84,17 +104,44 @@ for c_product in product_list:
         ym = np.arange(+5850000, -5350000, -dy)
         ds_sic.coords['xm'] = xr.DataArray(xm, dims=('x'))
         ds_sic.coords['ym'] = xr.DataArray(ym, dims=('y'))    
+
+        # get lats around the pole hole
+        hole_mask = ds_sic.hole_mask  
+        lats = ds_sic.lat.where(hole_mask==1)
+        LMAX=lats.min().values
         
-        # Calculate extent and area
-#         ds_sic['extent'] = ((ds_sic.sic>=0.15).astype('int') * ds_region.area).sum(dim='x').sum(dim='y')/(10**6)
-        ds_sic['extent'] = metrics.calc_extent(ds_sic.sic, ds_region, fill_pole_hole=True)
+        land_mask = ds_sic.sic.notnull() # use latest
+        land_mask = land_mask.where(hole_mask==0, other=1)
+
+        # avg concentration in annular ring around pole hole
+        sic_polehole=ds_sic.where(land_mask & (ds_sic.lat<LMAX) & (ds_sic.lat>LMAX-1)).sic.mean().values
+#        print('stuff ',sic_polehole, LMAX)
+
+        # Old way of computing extent and area
+        # ds_sic['extent'] = metrics.calc_extent(ds_sic.sic, ds_region, fill_pole_hole=True)
+        # print('extent force fill it', ds_sic['extent'])
+        # ds_sic['area'] = (ds_sic.sic * ds_region.area).sum(dim='x').sum(dim='y')/(10**6) # No pole hole
+        # print('no fill areas ',ds_sic.area)
+        
+        # fill pole hole with neighbor values
+        ds_sic = ds_sic.where(hole_mask==0, other=sic_polehole)
+        
+        # New results of extent and area after pole hole fill
+        # must not have TRUE or double counts the pole hole
+        # ds_sic['extent'] = metrics.calc_extent(ds_sic.sic, ds_region, fill_pole_hole=True)
+        # print('double counts it', ds_sic['extent'])
+
+        ds_sic['extent'] = metrics.calc_extent(ds_sic.sic, ds_region, fill_pole_hole=False)
+#        ds_sic.sic.plot()
+
 #         ds_sic['extent'] = ds_sic['extent'] + (ds_sic.hole_mask.astype('int') * ds_region.area).sum(dim='x').sum(dim='y')/(10**6) # Add hole
         ds_sic['area'] = (ds_sic.sic * ds_region.area).sum(dim='x').sum(dim='y')/(10**6) # No pole hole
-    
+
+#        print('extent and areas ',ds_sic.extent.values, ds_sic.area.values, sic_polehole, LMAX)
         # Save to netcdf file
         ds_sic.to_netcdf(os.path.join(nc_dir, nf.split('.b')[0]+'.nc'))
         ds_sic = None
-    
+
 #     # Calculate extent and area (saved to separte file)
 #     if len(new_files) > 0 : # There were some new files
 #         print('Calculating extent and area...')
@@ -114,5 +161,4 @@ for c_product in product_list:
     # For each Product
     print("Finished ", c_product)
     print("")
-
 

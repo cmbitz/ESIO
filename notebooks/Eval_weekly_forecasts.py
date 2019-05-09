@@ -1,14 +1,14 @@
 
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 # Paper or Website plots
 PaperPlots = False # Paper and website have different formating. True for running for paper figures. False for running website plots.
 
 
-# In[ ]:
+# In[2]:
 
 
 '''
@@ -30,9 +30,9 @@ GNU General Public License v3.0
 Plot forecast maps with all available models.
 '''
 
-#get_ipython().magic('matplotlib inline')
-#get_ipython().magic('load_ext autoreload')
-#get_ipython().magic('autoreload')
+get_ipython().magic('matplotlib inline')
+get_ipython().magic('load_ext autoreload')
+get_ipython().magic('autoreload')
 import matplotlib
 if not PaperPlots:
     matplotlib.use('Agg')
@@ -69,13 +69,13 @@ sns.set_style('whitegrid')
 sns.set_context("talk", font_scale=.8, rc={"lines.linewidth": 2.5})
 
 
-# In[ ]:
+# In[3]:
 
 
-def Update_Evaluation_Maps():
+def Update_Evaluation_Maps(PaperPlots = False):
 
-    client = Client(n_workers=8)
-    client
+#     client = Client(n_workers=8)
+#     client
 
     ### Paper Figure Parameters
 
@@ -256,6 +256,32 @@ def Update_Evaluation_Maps():
 
     # Read off what lead time in weeks where the black line crosses the red line
 
+    # central_extent = [-3850000*0.6, 3725000*0.6, -5325000*0.45, 5850000*0.45] # (x0, x1, y0, y1
+    # (f, axes) = ice_plot.multi_polar_axis(ncols=2, nrows=1, Nplots=2, 
+    #                                       extent=central_extent, central_longitude=0)
+    # f.set_size_inches(18.5, 10.5)
+
+    # # Get Observed mean sea ice edge location mean(SIC in sept) > 0.15
+    # # obs_SIP_OLD = ds_81['sic'].sel(time=slice(start_date_map,end_date_map)).mean(dim='time')>=0.15
+    # # Fill in pole hole
+    # # obs_SIP_OLD = obs_SIP_OLD.where(obs_SIP_OLD.hole_mask==0, other=1)
+
+    # p1 = obs_SIP.plot.pcolormesh(ax=axes[0], x='lon', y='lat', 
+    #                                       transform=ccrs.PlateCarree(),
+    #                                       add_colorbar=False,
+    #                                       cmap=cmap_c,
+    #                                       vmin=c_vmin, vmax=c_vmax)
+    # # ice_plot.remove_small_contours(po, thres=10**6)
+
+    # obs_SIP_contour = obs_SIP.where((obs_SIP.lon < 179.1))
+
+    # po = obs_SIP_contour.plot.contour(ax=axes[0], x='lon', y='lat',
+    #                               transform=ccrs.PlateCarree(), #.NorthPolarStereo(central_longitude=-45),
+    #                               colors=('k'),
+    #                               linewidths=[1],
+    #                               levels=[0.5])
+    # # ice_plot.remove_small_contours(po, thres=10**6)
+
     ### Plot BS spatial plots valid for Summer months (Figure 3)
 
     # Remove some select models
@@ -311,10 +337,19 @@ def Update_Evaluation_Maps():
                                                   extent=central_extent, central_longitude=0)
 
 
-            # Get Observed mean sea ice edge location mean(SIC in sept) > 0.15
-            obs_SIP = ds_81['sic'].sel(time=slice(start_date_map,end_date_map)).mean(dim='time')>=0.15
-            # Fill in pole hole
-            obs_SIP = obs_SIP.where(obs_SIP.hole_mask==0, other=1)
+    #         # Get Observed mean sea ice edge location mean(SIC in sept) > 0.15
+    #         obs_SIP = ds_81['sic'].sel(time=slice(start_date_map,end_date_map)).mean(dim='time')>=0.15
+    #         # Fill in pole hole
+    #         obs_SIP = obs_SIP.where(obs_SIP.hole_mask==0, other=1)
+
+            obs_SIP = ds_ALL.sel(model='Observed').SIP
+
+            # Select time slice of valid
+            obs_SIP = obs_SIP.where( (obs_SIP.valid_start>=start_date_map) & 
+                          (obs_SIP.valid_start<=end_date_map), drop=True)
+
+            # Average over valid time 
+            obs_SIP = obs_SIP.mean(dim='init_end').sel(fore_time=ft)
 
             for (i, cmod) in enumerate(c_ft_ds.model.values):
                 if cmod in c_ft_ds.model.values:
@@ -326,12 +361,13 @@ def Update_Evaluation_Maps():
                                           cmap=cmap_c,
                                           vmin=c_vmin, vmax=c_vmax)
 
-                    po = obs_SIP.plot.contour(ax=axes[i], x='xm', y='ym',
-                                          transform=ccrs.NorthPolarStereo(central_longitude=-45),
+                    # Need to clip obs so contour handles wrap around 180 correctly
+                    obs_SIP_contour = obs_SIP.where((obs_SIP.lon < 179.1))
+                    po = obs_SIP_contour.plot.contour(ax=axes[i], x='lon', y='lat',
+                                          transform=ccrs.PlateCarree(), #.NorthPolarStereo(central_longitude=-45),
                                           colors=('k'),
                                           linewidths=[1],
-                                          levels=[0.5]) #, label='Median ice edge 1981-2010')
-                    ice_plot.remove_small_contours(po, thres=10**6)
+                                          levels=[0.5])
 
                     add_subplot_title(cmod, E, ax=axes[i], BSS_val='{0:.3f}'.format(c_ft_ds.sel(model=cmod).mean(dim=['x','y']).load().item()))
 
@@ -421,8 +457,14 @@ def Update_Evaluation_Maps():
     # Save to file
     f_out = os.path.join(fig_dir,fig_ext+'BSS_by_lead_time_PanArctic.png')
     f.savefig(f_out,bbox_inches='tight', dpi=300)
+    
+    
+    
+    
 
     ### Plot Brier Score vs lead time (Figure 1)
+    print(BSS_agg_init.model.values)
+    mean_models = []
 
     min_N_samples = 10 # Min number of samples to allow for mean
     BSS_agg_init = BSS_agg.mean(dim='init_end')
@@ -432,7 +474,6 @@ def Update_Evaluation_Maps():
 
     # Get sample size of for each lead time
     for_sample = BSS_agg.sel(model='MME').notnull().sum(dim='init_end')
-    for_sample
 
     # Use threshold of sample size to cut off lead times
     max_lead = for_sample.where(for_sample>=min_N_samples,drop=True).fore_time.max().values.astype('timedelta64[D]').astype(int)/7
@@ -458,13 +499,23 @@ def Update_Evaluation_Maps():
             lw=5
         else:
             lw = 2
-
+            mean_models.append(cmod)
+            
         ax1.plot(BSS_agg_init.fore_time.values.astype('timedelta64[D]').astype(int)/7,
                 BSS_agg_init.sel(model=cmod).values, label=E.model[cmod]['model_label'].rstrip('*')+cflag,
                 color=cc,
                 linestyle=cl,
                 linewidth=lw,
                 marker=cm)
+        
+    # Plot the mean of BS across models 
+    ax1.plot(BSS_agg_init.fore_time.values.astype('timedelta64[D]').astype(int)/7,
+                BSS_agg_init.sel(model=mean_models).mean(dim='model').values, label='BS Mean',
+                color='r',
+                linestyle='-',
+                linewidth=2,
+                marker='d')
+        
     ax1.legend(loc='lower right', bbox_to_anchor=(1.285, -0.1))
     ax1.set_ylabel('Pan-Arctic BS (-)')
     ax1.set_xlim([-0.5,max_lead])
@@ -486,7 +537,10 @@ def Update_Evaluation_Maps():
 
     # Save to file
     f_out = os.path.join(fig_dir,fig_ext+'BSS_by_lead_time_PanArctic_New.png')
-    f.savefig(f_out,bbox_inches='tight', dpi=300)
+    f.savefig(f_out,bbox_inches='tight', dpi=200)
+    
+    
+    
 
     ### Plot the IIEE with lead time (SI)
 
@@ -547,11 +601,13 @@ def Update_Evaluation_Maps():
     ax2.set_yticks(np.arange(0,for_sample.max()+5,15));
 
     if not PaperPlots: # only add for website plots
-        ax1.text(np.datetime64('2018-01-01'), 0.025, 'Wayand et al. (2019)', fontsize=12)
+#        ax1.text(np.datetime64('2018-01-01'), 0.025, 'Wayand et al. (in review)', fontsize=12)
+        ax1.text(7, 0.25, 'Wayand et al. (2019)', fontsize=12)
+
 
     # Save to file
     f_out = os.path.join(fig_dir,fig_ext+'IIEE_by_lead_time_PanArctic.png')
-    f.savefig(f_out,bbox_inches='tight', dpi=300)
+    f.savefig(f_out,bbox_inches='tight', dpi=200)
 
 
 
@@ -565,9 +621,9 @@ def Update_Evaluation_Maps():
     DA_dict = {
     'modcansipns_3':'SIC (NG)', 
     'modcansipns_4':'SIC (NG)',
-    'ecmwfsipn':'SIC (4DVAR)', 
-    'ecmwf':'SIC (4DVAR)',
-    'yopp':'SIC (4DVAR)',
+    'ecmwfsipn':'SIC (3DVAR)', 
+    'ecmwf':'SIC (3DVAR)',
+    'yopp':'SIC (3DVAR)',
     'gfdlsipn':'No Sea Ice DA',
     'metreofr':'SIC (EnKF)',
     'szapirosipn':'No Sea Ice DA',
@@ -593,7 +649,9 @@ def Update_Evaluation_Maps():
     DA_options = sorted(list(set(DA_dict.values())))
     dict(zip(DA_options,np.arange(len(DA_options))))
 
-    DA_options = [DA_options[1],  DA_options[4], DA_options[5], DA_options[7], DA_options[2], DA_options[3], DA_options[6],DA_options[0],] # Reorder from simple to complex
+    #DA_options = [DA_options[1],  DA_options[4], DA_options[5], DA_options[7], DA_options[2], DA_options[3], DA_options[6],DA_options[0],] # Reorder from simple to complex
+    DA_options = [DA_options[1],  DA_options[3], DA_options[4], DA_options[6], DA_options[2], DA_options[5],DA_options[0],] # Reorder from simple to complex
+    
     DA_options_i = np.arange(len(DA_options))
     DA_options_dict = dict(zip(DA_options,DA_options_i))
     DA_options_dict
@@ -607,7 +665,7 @@ def Update_Evaluation_Maps():
     sns.set_style("whitegrid")
 
     sns.set_context("talk", font_scale=1, rc={"lines.linewidth": 2.5})
-    f, axes = plt.subplots(1, 1, figsize=(8, 5))
+    f, axes = plt.subplots(1, 1, figsize=(9, 5))
 
     for cmod in BSS_agg.model.values:
         if cmod in DA_dict.keys():
@@ -624,7 +682,7 @@ def Update_Evaluation_Maps():
 
             #rand_jit = np.random.randint(-100,100)/1000*2
             c_x = np.linspace(DA_options_dict[DA_dict[cmod]],
-                              DA_options_dict[DA_dict[cmod]]+0.9,
+                              DA_options_dict[DA_dict[cmod]]+0.75,
                               len(leads2plot))
             #print(c_x)
 
@@ -634,7 +692,7 @@ def Update_Evaluation_Maps():
                     linestyle='-',
                     linewidth=lw,
                     marker=cm,
-                    label=E.model[cmod]['model_label'])
+                    label=E.model[cmod]['model_label'].rstrip('*'))
         else:
             print(cmod,"not in dict")
     axes.set_xticks(DA_options_i)
@@ -644,11 +702,11 @@ def Update_Evaluation_Maps():
     plt.ylabel('Pan-Arctic BS (-)')
 
     if not PaperPlots: # only add for website plots
-        axes.text(5, 0.085, 'Wayand et al. (2019)', fontsize=12)
+        axes.text(4.2, 0.081, 'Based on Wayand et al. (2019)', fontsize=12)
 
     # Save to file
     f_out = os.path.join(fig_dir,fig_ext+'BSS_week_Multi_by_DA_Type.png')
-    f.savefig(f_out,bbox_inches='tight', dpi=300)
+    f.savefig(f_out,bbox_inches='tight', dpi=200)
 
 
 
@@ -673,7 +731,7 @@ def Update_Evaluation_Maps():
             if BSS_agg_fore.sel(model=cmod).notnull().sum().values==0:
                 continue # Don't plot
             plt.plot(BSS_agg_fore.init_end.values,
-                    BSS_agg_fore.sel(model=cmod).values, label=E.model[cmod]['model_label'],
+                    BSS_agg_fore.sel(model=cmod).values, label=E.model[cmod]['model_label'].rstrip('*'),
                     color=cc,
                     linestyle=cl,
                     linewidth=lw,
@@ -686,15 +744,15 @@ def Update_Evaluation_Maps():
 
 
         if not PaperPlots: # only add for website plots
-            plt.text(np.datetime64('2018-01-01'), 0.16, 'Wayand et al. (2019)', fontsize=12)
+            plt.text(np.datetime64('2018-01-01'), 0.163, 'Based on Wayand et al. (2019)', fontsize=12)
         # Save to file
         f_out = os.path.join(fig_dir,fig_ext+'BSS_by_init_time_'+str(BSS_agg_fore.fore_time.values.astype('timedelta64[D]').astype(int))+'_days.png')
-        f.savefig(f_out,bbox_inches='tight', dpi=300)
-        
+        f.savefig(f_out,bbox_inches='tight', dpi=200)
+
         print("Finished Eval_Weekly")
 
 
-# In[ ]:
+# In[4]:
 
 
 if __name__ == '__main__':
@@ -702,5 +760,11 @@ if __name__ == '__main__':
     client = Client(n_workers=8)
     
     # Call function
-    Update_Evaluation_Maps()
+    Update_Evaluation_Maps(PaperPlots)
+
+
+# In[5]:
+
+
+PaperPlots
 

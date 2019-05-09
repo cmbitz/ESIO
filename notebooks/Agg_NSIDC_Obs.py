@@ -95,7 +95,7 @@ for c_product in product_list:
             #print("No files found for current year")
             continue
         ds_year = xr.open_mfdataset(c_files, 
-                                      concat_dim='time', autoclose=True, parallel=True)
+                                      concat_dim='time', parallel=True)
 
         print('writing netcdf file')
         ds_year.to_netcdf(nc_out)

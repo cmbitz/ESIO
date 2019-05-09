@@ -4,6 +4,9 @@ import xarray as xr
 from scipy import stats
 import matplotlib.pyplot as plt
 import matplotlib
+import statsmodels.api as sm
+from scipy.interpolate import InterpolatedUnivariateSpline
+
 
 def mask_common_extent(ds_obs, ds_mod, max_obs_missing=0.1):
     ''' Define naive_fast that searches for the nearest WRF grid cell center.'''
@@ -162,14 +165,15 @@ def calc_IFD_10day(da, sic_threshold=0.5, DOY_s=1, time_dim='time', Nday=10, def
     return ifd
 
 
-def calc_hist_sip(ds_sic=None, ystart='2007', yend='2017', sic_threshold=0.15):
+def calc_hist_sip(ds_sic=None, ystart='2007', yend='2017', sic_threshold=0.15, fill_pole_hole=False):
     ''' Calc historical SIP for a range of years '''
     
     # Trim by years
     ds_sic = ds_sic.sel(time=slice(ystart, yend))
-    
-    # Get landmask and pole hole (where sic is NaN from last time so pole hold is smallest)
-    land_mask = ds_sic.drop('hole_mask').isel(time=len(ds_sic.time)-1).notnull()
+
+    print(ds_sic)
+    # Get landmask 
+    land_mask = ds_sic.isel(time=-1).notnull()
     
     # Convert sea ice presence
     ds_sp = (ds_sic >= sic_threshold).astype('int') # This unfortunatly makes all NaN -> zeros...
@@ -177,8 +181,10 @@ def calc_hist_sip(ds_sic=None, ystart='2007', yend='2017', sic_threshold=0.15):
     # Mask land before fill in pole hole since it wipes it out
     ds_sp = ds_sp.where(land_mask)
     
-    # Fill in pole hole with 1 (so contours don't get made around it)
-    ds_sp = ds_sp.where(ds_sic.hole_mask==0, other=1).drop('hole_mask')
+    if fill_pole_hole:
+        # Fill in pole hole with 1 (so contours don't get made around it)
+        # A minor mistake if pole hole was already filled with avg SIC
+        ds_sp = ds_sp.where(ds_sic.hole_mask==0, other=1).drop('hole_mask')
     
     # Add DOY
     DOY = [x.timetuple().tm_yday for x in pd.to_datetime(ds_sp.time.values)]
@@ -397,7 +403,106 @@ def BrierSkillScore(da_mod_sip=None,
     return BSS
 
 
+def _lowessfit(x=None, y=None, dummy=None):
 
+    # lowess smooth and then fit with polynomial
+    # returns fit parameters output from polyfit
+    
+    nonans = np.logical_or(np.isnan(x), np.isnan(y))
+    x_nonans = x[~nonans]
+    y_nonans = y[~nonans]
+    order = 2  # 2 = quadratic
+    
+    if y_nonans.size == 0:
+        fitparms = np.empty(order+1) * np.nan
+    else: 
+        sumy = np.sum(y_nonans)
+        leny = 1.0*np.size(y_nonans)
+        fitparms = np.zeros(order+1)
+        if (sumy>0. and sumy<leny):
+            # lowess will return our "smoothed" data with a y value for at every x-value
+            # important for eliminating problems with outliers
+            lowess = sm.nonparametric.lowess(y_nonans, x_nonans, frac=.3)  # higher frac is smoother
+            
+            # unpack the lowess smoothed points to their values
+            lowess_y = list(zip(*lowess))[1]
+            
+            # we can use a higher order fit safely since we smoothed
+            # smoothing was much less important than the 2nd order fit
+            fitparms = np.polyfit(x, lowess_y, order)
+        elif (sumy==leny):
+            fitparms[order] = 1.0
+            
+    return (fitparms)
+
+
+
+def LowessQuadFit(obj, xdim):
+    time_nums = xr.DataArray(obj[xdim].values.astype(np.float),
+                             dims=xdim,
+                             coords={xdim: obj[xdim]},
+                             name=xdim)
+    # could not figure out the output_size error so
+    # tried other route of sending a dim of same size as input and output
+    # be sure to change here if alter the polyfit order in _lowessfit 
+    dummy = xr.DataArray(np.random.randn(3), coords={'pdim': [0, 1, 2]}, dims=('pdim'))
+
+    p1 = xr.apply_ufunc(_lowessfit, time_nums, obj, dummy,
+                                vectorize=True,
+                                input_core_dims=[[xdim], [xdim], ['pdim']],
+                                output_core_dims=[['pdim']],
+                                output_dtypes=[np.float],
+                                dask='parallelized')
+    
+    return (p1)
+
+
+
+def _lowessext(x=None, y=None, pyear=None):
+
+    # lowess does not work if data have nans
+    nonans = np.logical_or(np.isnan(x), np.isnan(y))
+    x_nonans = x[~nonans]
+    y_nonans = y[~nonans]
+
+    if y_nonans.size == 0:
+        znew = np.nan
+    else: 
+
+        # lowess will return our "smoothed" data with a y value for at every x-value
+        # important for eliminating problems with outliers
+        lowess = sm.nonparametric.lowess(y_nonans, x_nonans, frac=.3)  # higher frac is smoother
+
+        # unpack the lowess smoothed points to their values
+        lowess_y = list(zip(*lowess))[1]
+
+        # we can use a higher order fit safely since we smoothed
+        # smoothing was much less important than the 2nd order fit
+        gl = np.polyfit(x, lowess_y, 2)
+        hl = np.poly1d(gl)
+
+        znew = hl(pyear)
+        #    zfit = hl(x)
+        #    return (znew, zfit)
+
+    return (znew)
+
+
+
+def LowessFitModel(obj, xdim, pyear):
+    time_nums = xr.DataArray(obj[xdim].values.astype(np.float),
+                             dims=xdim,
+                             coords={xdim: obj[xdim]},
+                             name=xdim)
+    predictant = xr.apply_ufunc(_lowessext, time_nums, obj, pyear,
+                                vectorize=True,
+                                input_core_dims=[[xdim], [xdim], []],
+                                output_core_dims=[[]],
+                                output_dtypes=[np.float],
+                                dask='parallelized')
+    
+    return predictant
+            
 def _lrm(x=None, y=None, pyear=None):
     '''wrapper that returns the predicted values from a linear regression fit of x and y'''
     # TODO remove hardcoded 2018 (was not passing more then 2 arg???)
